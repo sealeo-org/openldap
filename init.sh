@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 set -eu
 
@@ -46,5 +46,5 @@ fi
 status "starting slapd"
 set -x
 
-service apache2 start
-service slapd start
+pkill slapd
+/etc/init.d/slapd start
