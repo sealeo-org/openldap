@@ -1,0 +1,48 @@
+#!/bin/bash
+
+DC='dc='$(echo ${LDAP_DOMAIN} | cut -d "." -f 1)',dc='$(echo ${LDAP_DOMAIN} | cut -d "." -f 2)
+
+if [ $(basename $0) == 'add_user' ]; then
+echo -n 'Login ?'
+read login
+echo -n 'Firstname ?'
+read firstname
+echo -n 'Lastname ?'
+read lastname
+echo -n 'Email ?'
+read email
+echo -n 'Password ?'
+read password
+
+cat > /tmp/user.ldif <<EOF
+dn: cn=$login,ou=people,$DC
+cn: $login
+displayname: $firstname $lastname
+givenname: $firstname
+mail: $email
+objectclass: top
+objectclass: inetOrgPerson
+sn: $lastname
+uid: $login
+userpassword: $(slappasswd -s $password -h {SSHA})
+EOF
+
+ldapadd -D "cn=admin,$DC" -w $LDAP_PASSWORD -h localhost -f /tmp/user.ldif
+fi
+
+if [ $(basename $0) == 'add_group' ]; then
+
+echo -n 'UID ?'
+read uid
+
+cat > /tmp/group.ldif <<EOF
+dn: cn=$uid,ou=groups,$DC
+cn: $uid
+member: cn=admin,$DC
+objectclass: groupOfNames
+objectclass: top
+owner: cn=admin,$DC
+EOF
+
+ldapadd -D "cn=admin,$DC" -w $LDAP_PASSWORD -h localhost -f /tmp/group.ldif
+fi

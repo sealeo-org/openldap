@@ -85,12 +85,12 @@ cat > basic.ldif <<EOF
 dn: ou=groups,$1
 objectclass: organizationalUnit
 objectclass: top
-ou: groups
+ou: Groups
 
 dn: ou=people,$1
 objectclass: organizationalUnit
 objectclass: top
-ou: people
+ou: People
 EOF
 
 ldapadd -x -D cn=admin,$1 -w ${LDAP_PASSWORD} -f basic.ldif

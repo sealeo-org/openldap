@@ -38,4 +38,10 @@ ADD memberof_config.ldif /root/slapd/
 ADD refint1.ldif /root/slapd/
 ADD refint2.ldif /root/slapd/
 
+ADD script /root/slapd/
+RUN chmod +x /root/slapd/script
+
+RUN ln -s /root/slapd/script /add_user
+RUN ln -s /root/slapd/script /add_group
+
 CMD ["/usr/bin/supervisord"]
