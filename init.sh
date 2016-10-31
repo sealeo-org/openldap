@@ -8,6 +8,94 @@ status () {
 
 set -x
 
+
+# Forbid anonymous access
+changeAccess () {
+cd /root/slapd/
+
+DC=$1
+
+cat > changeAccess.ldif << EOF
+dn: olcDatabase={1}hdb,cn=config 
+changetype: modify
+delete: olcAccess
+-
+add: olcAccess
+olcAccess: {0}to attrs=userPassword,shadowLastChange by self write by anonymous auth by dn="cn=admin,$DC" write by * none
+-
+add: olcAccess
+olcAccess: {1}to dn.base="" by * read
+-
+add: olcAccess
+olcAccess: {2}to * by self write by dn="cn=admin,$DC" write by * none
+-
+EOF
+
+pkill slapd
+service slapd start
+
+ldapmodify -c -Y EXTERNAL -H ldapi:/// -f changeAccess.ldif
+}
+
+configMail () {
+	cp /usr/share/doc/courier-authlib-ldap/authldap.schema /etc/ldap/schema
+	
+	mkdir /root/ldapConfig
+
+	cat > /root/ldapConfig/schemaInclude.conf << EOF
+include /etc/ldap/schema/core.schema
+include /etc/ldap/schema/cosine.schema
+include /etc/ldap/schema/nis.schema
+include /etc/ldap/schema/inetorgperson.schema
+include /etc/ldap/schema/authldap.schema
+EOF
+
+FIRSTLINE=$(grep -n "^#.*mailhost" /etc/ldap/schema/authldap.schema  | cut -d ":" -f 1)
+NBLINES=$(cat /etc/ldap/schema/authldap.schema | wc -l)
+head -n $(($FIRSTLINE-1)) /etc/ldap/schema/authldap.schema > /root/authldap.schema
+cat /etc/ldap/schema/authldap.schema | head -n $(($FIRSTLINE+3)) | tail -n 4 | cut -d '#' -f 2 >> /root/authldap.schema
+tail -n $(($NBLINES-$FIRSTLINE-3)) /etc/ldap/schema/authldap.schema >> /root/authldap.schema
+cp /root/authldap.schema /etc/ldap/schema/authldap.schema
+
+slaptest -f /root/ldapConfig/schemaInclude.conf -F /root/ldapConfig
+
+cd /root/ldapConfig/cn=config/cn=schema
+
+AUTHLDAP=$(ls | grep authldap)
+
+cat $AUTHLDAP | sed -re 's/(cn.+)\{[0-9]\}(.*)$/\1\2/g' | sed -re "s/cn=authldap/cn=authldap,cn=schema,cn=config/g" > /root/$AUTHLDAP
+
+head -n $(($(cat /root/$AUTHLDAP |wc -l)-7)) /root/$AUTHLDAP > $AUTHLDAP
+
+ldapadd -Y EXTERNAL -H ldapi:// -f /root/ldapConfig/cn=config/cn=schema/$AUTHLDAP
+
+apt-get purge -y courier-ldap courier-authlib courier-authlib-ldap courier-base courier-doc
+}
+
+configMemberof () {
+	cd /root/slapd
+	ldapadd -Q -Y EXTERNAL -H ldapi:/// -f memberof_config.ldif
+	ldapmodify -Q -Y EXTERNAL -H ldapi:/// -f refint1.ldif
+	ldapadd -Q -Y EXTERNAL -H ldapi:/// -f refint2.ldif
+}
+
+configBase () {
+	cd /root/slapd
+cat > basic.ldif <<EOF
+dn: ou=groups,$1
+objectclass: organizationalUnit
+objectclass: top
+ou: groups
+
+dn: ou=people,$1
+objectclass: organizationalUnit
+objectclass: top
+ou: people
+EOF
+
+ldapadd -x -D cn=admin,$1 -w ${LDAP_PASSWORD} -f basic.ldif
+}
+
 if [ ! -e /var/lib/ldap/docker_bootstrapped ]; then
 	status "configuring slapd for first run"
 
@@ -39,6 +127,11 @@ sed -i "s/\(\$servers->setValue('server','base',array('\)\(.*\)\('));\)$/\1${DC}
 sed -i "s/\(\$servers->setValue('login','bind_id','\)\(.*\)\(');\)$/\1cn=admin,${DC}\3/g" /etc/phpldapadmin/config.php
 sed -i "s/\(\$servers->setValue('login','bind_pass','\)\(.*\)\(');\)$/\1${LDAP_PASSWORD}\3/g" /etc/phpldapadmin/config.php
 
+changeAccess $DC 
+configMail
+configMemberof
+configBase $DC
+
 else
 	status "found already-configured slapd"
 fi
@@ -48,3 +141,4 @@ set -x
 
 pkill slapd
 /etc/init.d/slapd start
+

@@ -8,6 +8,7 @@ RUN LC_ALL=C DEBIAN_FRONTEND=noninteractive apt-get install -y slapd
 RUN apt-get install wget -y
 RUN apt-get install phpldapadmin -y
 RUN apt-get install ldap-utils && apt-get install vim -y
+RUN LC_ALL=C DEBIAN_FRONTEND=noninteractive apt-get install courier-ldap -y
 
 ENV LDAP_PASSWORD password
 ENV LDAP_ORGANISATION Inc.
@@ -33,5 +34,8 @@ VOLUME ["/var/lib/ldap"]
 
 RUN mkdir /root/slapd/
 ADD init.sh /root/slapd/
+ADD memberof_config.ldif /root/slapd/
+ADD refint1.ldif /root/slapd/
+ADD refint2.ldif /root/slapd/
 
 CMD ["/usr/bin/supervisord"]
