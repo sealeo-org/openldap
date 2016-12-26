@@ -139,6 +139,6 @@ fi
 status "starting slapd"
 set -x
 
-pkill slapd
+/etc/init.d/slapd stop
 /etc/init.d/slapd start
 
