@@ -96,7 +96,7 @@ EOF
 ldapadd -x -D cn=admin,$1 -w ${LDAP_PASSWORD} -f basic.ldif
 }
 
-if [ ! -e /var/lib/ldap/docker_bootstrapped ]; then
+if [ ! -e /var/lib/ldap/docker_configured ]; then
 	status "configuring slapd for first run"
 
 cat <<EOF | debconf-set-selections
@@ -117,7 +117,7 @@ EOF
 
 dpkg-reconfigure -f noninteractive slapd
 
-touch /var/lib/ldap/docker_bootstrapped
+touch /var/lib/ldap/docker_configured
 
 
 # Configure phpldapadmin
