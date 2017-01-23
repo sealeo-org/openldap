@@ -11,8 +11,11 @@ echo -n 'Lastname ?'
 read lastname
 echo -n 'Email ?'
 read email
+OLDMODES=$(stty -g)
+stty -echo
 echo -n 'Password ?'
 read password
+stty $OLDMODES
 
 cat > /tmp/user.ldif <<EOF
 dn: cn=$login,ou=people,$DC
