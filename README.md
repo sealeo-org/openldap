@@ -33,3 +33,44 @@ services:
       - LDAP_DOMAIN=mydomain.com
       - LDAP_SERVERNAME=MyLDAP
 ```
+
+# Usage
+
+To add user and group, 2 scripts are available and you can execute 
+with *docker exec* command
+
+## Add user
+
+```bash
+docker exec -it ldap add_user
+
+Login ?joe
+Firstname ?Joe
+Lastname ?Smith
+Email ?joe@smith.com
+Password ?
+
+adding new entry "cn=joe,ou=people,dc=mydomain,dc=com"
+```
+
+## Add user
+
+```bash
+docker exec -it ldap add_group
+
+UID ?members
+
+adding new entry "cn=members,ou=groups,dc=mydomain,dc=com"
+```
+
+## PHPLDAPadmin
+
+On the port 80, you can access to PHPLDAPadmin to administrate your LDAP.
+
+Your credentials : 
+```yaml
+Login DN: cn=admin,dc=mydomain,dc=com
+
+Password: password
+```
+The password is *LDAP_PASSWORD* field
