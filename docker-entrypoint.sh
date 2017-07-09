@@ -9,7 +9,7 @@ status () {
 set -x
 
 
-# Forbid anonymous access
+# Forbid anonymous access and update ACL for docker "mail"
 changeAccess () {
 cd /root/slapd/
 
@@ -21,13 +21,16 @@ changetype: modify
 delete: olcAccess
 -
 add: olcAccess
-olcAccess: {0}to attrs=userPassword,shadowLastChange by self write by anonymous auth by dn="cn=admin,$DC" write by * none
+olcAccess: {0}to dn.sub="dc=mail,$DC" attrs=userPassword,shadowLastChange by dn="cn=dovecot,$DC" read
 -
 add: olcAccess
-olcAccess: {1}to dn.base="" by * read
+olcAccess: {1}to attrs=userPassword,shadowLastChange by self write by anonymous auth by dn="cn=admin,$DC" write by * none
 -
 add: olcAccess
-olcAccess: {2}to * by self write by dn="cn=admin,$DC" write by * none
+olcAccess: {2}to dn.base="" by * read
+-
+add: olcAccess
+olcAccess: {3}to * by self write by dn="cn=admin,$DC" write by dn="cn=dovecot,$DC" read by * none
 -
 EOF
 
@@ -38,11 +41,11 @@ ldapmodify -c -Y EXTERNAL -H ldapi:/// -f changeAccess.ldif
 }
 
 configMail () {
-	cp /usr/share/doc/courier-authlib-ldap/authldap.schema /etc/ldap/schema
+cp /usr/share/doc/courier-authlib-ldap/authldap.schema /etc/ldap/schema
 	
-	mkdir /root/ldapConfig
+mkdir /root/ldapConfig
 
-	cat > /root/ldapConfig/schemaInclude.conf << EOF
+cat > /root/ldapConfig/schemaInclude.conf << EOF
 include /etc/ldap/schema/core.schema
 include /etc/ldap/schema/cosine.schema
 include /etc/ldap/schema/nis.schema
@@ -73,14 +76,14 @@ apt-get purge -y courier-ldap courier-authlib courier-authlib-ldap courier-base 
 }
 
 configMemberof () {
-	cd /root/slapd
-	ldapadd -Q -Y EXTERNAL -H ldapi:/// -f memberof_config.ldif
-	ldapmodify -Q -Y EXTERNAL -H ldapi:/// -f refint1.ldif
-	ldapadd -Q -Y EXTERNAL -H ldapi:/// -f refint2.ldif
+cd /root/slapd
+ldapadd -Q -Y EXTERNAL -H ldapi:/// -f memberof_config.ldif
+ldapmodify -Q -Y EXTERNAL -H ldapi:/// -f refint1.ldif
+ldapadd -Q -Y EXTERNAL -H ldapi:/// -f refint2.ldif
 }
 
 configBase () {
-	cd /root/slapd
+cd /root/slapd
 cat > basic.ldif <<EOF
 dn: ou=groups,$1
 objectclass: organizationalUnit
