@@ -10,10 +10,14 @@ DC="dc=$(echo $LDAP_DOMAIN|cut -d'.' -f1),dc=$(echo $LDAP_DOMAIN|cut -d'.' -f2)"
 CN_ADMIN="cn=admin,$DC"
 LDAP_OPTS="-c -Y EXTERNAL -H ldapi:///"
 LDAP_OPTS_ADMIN="-x -h localhost -D $CN_ADMIN -w $LDAP_PASSWORD"
+LDAP_OPTS_ADMIN_SSL="-h ldap.$LDAP_DOMAIN -p 389 -ZZZ -D $CN_ADMIN -w $LDAP_PASSWORD"
 
+escape() {
+  echo $1 | sed 's#\([]\#\%\@\*\$\/&[]\)#\\\1#g'
+}
 
 setValue() {
-  VAR=$(echo $2 | sed 's#\([]\#\%\@\*\$\/&[]\)#\\\1#g')
+  VAR=$( escape "$2" )
   sed -i "s/^#\?\($1[[:space:]]*=\).*$/\1$VAR/" $3
 }
 

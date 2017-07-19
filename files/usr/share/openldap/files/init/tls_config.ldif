@@ -1,0 +1,18 @@
+dn: olcDatabase={1}hdb,cn=config
+changetype:  modify
+add: olcSecurity
+olcSecurity: tls=0
+
+dn: cn=config
+changetype: modify
+add: olcTLSCACertificateFile
+olcTLSCACertificateFile: /ssl/%LDAP_DOMAIN/chain.pem
+-
+replace: olcTLSCertificateFile
+olcTLSCertificateFile: /ssl/%LDAP_DOMAIN/cert.pem
+-
+replace: olcTLSCertificateKeyFile
+olcTLSCertificateKeyFile: /ssl/%LDAP_DOMAIN/privkey.pem
+-
+add: olcTLSVerifyClient
+olcTLSVerifyClient: never

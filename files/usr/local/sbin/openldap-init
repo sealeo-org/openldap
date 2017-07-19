@@ -10,14 +10,21 @@ changeAccess () {
 	TMP=$(mktemp)
 	replaceValues>$TMP $CONFD/change_access.ldif DC "$DC"
 
-	pkill slapd
-	service slapd start
 
 	ldapmodify $LDAP_OPTS -f $TMP
 }
 
 configSSL() {
-	echo ""
+	TMP=$(mktemp)
+	chown -R openldap /ssl/*
+	chmod -R 700 /ssl/*
+
+	setValue SLAPD_LDAPS yes /etc/default/slapd
+	setValue SLAPD_SERVICES "\"ldap:/// ldaps:/// ldapi:///\"" /etc/default/slapd 
+
+	replaceValues>$TMP $CONFD/tls_config.ldif LDAP_DOMAIN "ldap.$LDAP_DOMAIN"
+
+	ldapmodify -QY EXTERNAL -H ldapi:/// -f $TMP
 }
 
 configMail () {
@@ -47,7 +54,7 @@ configMemberof () {
 configBase () {
 	TMP=$(mktemp)
 	replaceValues>$TMP $CONFD/basic.ldif DC "$DC"
-	ldapadd $LDAP_OPTS_ADMIN -f $TMP
+	ldapadd $LDAP_OPTS_ADMIN_SSL -f $TMP
 }
 
 configPHPLDAPAdmin() {
@@ -55,7 +62,8 @@ configPHPLDAPAdmin() {
 sed -i "s/\(\$servers->setValue('server','name','\)\(.*\)\(');\)$/\1${LDAP_SERVERNAME}\3/g" /etc/phpldapadmin/config.php
 sed -i "s/\(\$servers->setValue('server','base',array('\)\(.*\)\('));\)$/\1${DC}\3/g" /etc/phpldapadmin/config.php
 sed -i "s/\(\$servers->setValue('login','bind_id','\)\(.*\)\(');\)$/\1cn=admin,${DC}\3/g" /etc/phpldapadmin/config.php
-sed -i "s/\(\$servers->setValue('login','bind_pass','\)\(.*\)\(');\)$/\1${LDAP_PASSWORD}\3/g" /etc/phpldapadmin/config.php
+sed -i "s/\(\$servers->setValue('login','bind_pass','\)\(.*\)\(');\)$/\1$(escape ${LDAP_PASSWORD})\3/g" /etc/phpldapadmin/config.php
+sed -i "s/\(\$servers->setValue('server','tls',\)\(.*\)\();\)$/\1true\3/g" /etc/phpldapadmin/config.php
 }
 
 if [ ! -e /usr/share/openldap/docker_configured ]; then
@@ -79,21 +87,22 @@ EOF
 
 	dpkg-reconfigure -f noninteractive slapd
 
-	touch /usr/share/openldap/docker_configured
+	/etc/init.d/slapd start
 
 	changeAccess
 	configSSL
+	configPHPLDAPAdmin
 	configMail
 	configMemberof
 	configBase
-	configPHPLDAPAdmin
 
+	touch /usr/share/openldap/docker_configured
 else
 	status "found already-configured slapd"
 fi
 
 status "starting slapd"
 
-/etc/init.d/slapd stop
+pkill slapd
 /etc/init.d/slapd start
 
