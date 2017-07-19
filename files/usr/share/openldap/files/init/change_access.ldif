@@ -1,0 +1,16 @@
+dn: olcDatabase={1}hdb,cn=config 
+changetype: modify
+delete: olcAccess
+-
+add: olcAccess
+olcAccess: {0}to dn.sub="dc=mail,%DC" attrs=userPassword,shadowLastChange by dn="cn=dovecot,%DC" read
+-
+add: olcAccess
+olcAccess: {1}to attrs=userPassword,shadowLastChange by self write by anonymous auth by dn="cn=admin,%DC" write by * none
+-
+add: olcAccess
+olcAccess: {2}to dn.base="" by * read
+-
+add: olcAccess
+olcAccess: {3}to * by self write by dn="cn=admin,%DC" write by dn="cn=dovecot,%DC" read by * none
+-

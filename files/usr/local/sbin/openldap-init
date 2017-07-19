@@ -1,0 +1,99 @@
+#!/bin/bash
+
+source /usr/share/openldap/common
+
+set -eux
+CONFD=$BASE_CONFD/init
+
+# Forbid anonymous access and update ACL for docker "mail"
+changeAccess () {
+	TMP=$(mktemp)
+	replaceValues>$TMP $CONFD/change_access.ldif DC "$DC"
+
+	pkill slapd
+	service slapd start
+
+	ldapmodify $LDAP_OPTS -f $TMP
+}
+
+configSSL() {
+	echo ""
+}
+
+configMail () {
+	mkdir /tmp/ldapConfig
+
+	TMP=$(mktemp)
+	slaptest -f $CONFD/schemaInclude.conf -F /tmp/ldapConfig
+
+	SCHEMAS=/tmp/ldapConfig/cn=config/cn=schema
+	cd $SCHEMAS
+
+	AUTHLDAP=$(ls | grep authldap)
+
+	cat $SCHEMAS/$AUTHLDAP | sed -re 's/(cn.+)\{[0-9]\}(.*)$/\1\2/g' | sed -re "s/cn=authldap/cn=authldap,cn=schema,cn=config/g" > $TMP
+
+	head -n $(($(cat $SCHEMAS/$AUTHLDAP |wc -l)-7)) $TMP > $AUTHLDAP
+
+	ldapadd $LDAP_OPTS -f $SCHEMAS/$AUTHLDAP
+}
+
+configMemberof () {
+	ldapadd $LDAP_OPTS -f $CONFD/memberof_config.ldif
+	ldapmodify $LDAP_OPTS -f $CONFD/refint1.ldif
+	ldapadd $LDAP_OPTS -f $CONFD/refint2.ldif
+}
+
+configBase () {
+	TMP=$(mktemp)
+	replaceValues>$TMP $CONFD/basic.ldif DC "$DC"
+	ldapadd $LDAP_OPTS_ADMIN -f $TMP
+}
+
+configPHPLDAPAdmin() {
+# Configure phpldapadmin
+sed -i "s/\(\$servers->setValue('server','name','\)\(.*\)\(');\)$/\1${LDAP_SERVERNAME}\3/g" /etc/phpldapadmin/config.php
+sed -i "s/\(\$servers->setValue('server','base',array('\)\(.*\)\('));\)$/\1${DC}\3/g" /etc/phpldapadmin/config.php
+sed -i "s/\(\$servers->setValue('login','bind_id','\)\(.*\)\(');\)$/\1cn=admin,${DC}\3/g" /etc/phpldapadmin/config.php
+sed -i "s/\(\$servers->setValue('login','bind_pass','\)\(.*\)\(');\)$/\1${LDAP_PASSWORD}\3/g" /etc/phpldapadmin/config.php
+}
+
+if [ ! -e /usr/share/openldap/docker_configured ]; then
+	status "configuring slapd for first run"
+
+	cat <<EOF | debconf-set-selections
+slapd slapd/password2 password ${LDAP_PASSWORD}
+slapd slapd/password1 password ${LDAP_PASSWORD}
+slapd slapd/internal/generated_adminpw password ${LDAP_PASSWORD}
+slapd slapd/internal/adminpw password ${LDAP_PASSWORD}
+slapd slapd/dump_database_destdir string /var/backups/slapd-VERSION
+slapd slapd/domain string ${LDAP_DOMAIN}
+slapd shared/organization string ${LDAP_ORGANISATION}
+slapd slapd/backend string HDB
+slapd slapd/purge_database boolean true
+slapd slapd/move_old_database boolean true
+slapd slapd/allow_ldap_v2 boolean false
+slapd slapd/no_configuration boolean false
+slapd slapd/dump_database select when needed
+EOF
+
+	dpkg-reconfigure -f noninteractive slapd
+
+	touch /usr/share/openldap/docker_configured
+
+	changeAccess
+	configSSL
+	configMail
+	configMemberof
+	configBase
+	configPHPLDAPAdmin
+
+else
+	status "found already-configured slapd"
+fi
+
+status "starting slapd"
+
+/etc/init.d/slapd stop
+/etc/init.d/slapd start
+

@@ -2,7 +2,7 @@
 
 DC='dc='$(echo ${LDAP_DOMAIN} | cut -d "." -f 1)',dc='$(echo ${LDAP_DOMAIN} | cut -d "." -f 2)
 
-if [ $(basename $0) == 'add_user' ]; then
+if [ $(basename $0) == 'adduser' ]; then
 echo -n 'Login ?'
 read login
 echo -n 'Firstname ?'
@@ -33,7 +33,7 @@ EOF
 ldapadd -D "cn=admin,$DC" -w $LDAP_PASSWORD -h localhost -f /tmp/user.ldif
 fi
 
-if [ $(basename $0) == 'add_group' ]; then
+if [ $(basename $0) == 'addgroup' ]; then
 
 echo -n 'UID ?'
 read uid
