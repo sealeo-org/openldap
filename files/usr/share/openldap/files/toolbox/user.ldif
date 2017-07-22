@@ -1,0 +1,11 @@
+dn: cn=%LOGIN,ou=people,%DC
+cn: %LOGIN
+displayname: %FIRSTNAME %LASTNAME
+givenname: %FIRSTNAME
+mail: %EMAIL
+objectclass: top
+objectclass: inetOrgPerson
+sn: %LASTNAME
+uid: %LOGIN
+userpassword: %PASSWORD
+

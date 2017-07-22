@@ -10,6 +10,8 @@ changeAccess () {
 	TMP=$(mktemp)
 	replaceValues>$TMP $CONFD/change_access.ldif DC "$DC"
 
+	setValue SLAPD_LDAPS yes /etc/default/slapd
+	setValue SLAPD_SERVICES "\"ldap:/// ldaps:/// ldapi:///\"" /etc/default/slapd 
 
 	ldapmodify $LDAP_OPTS -f $TMP
 }
@@ -18,9 +20,6 @@ configSSL() {
 	TMP=$(mktemp)
 	chown -R openldap /ssl/*
 	chmod -R 700 /ssl/*
-
-	setValue SLAPD_LDAPS yes /etc/default/slapd
-	setValue SLAPD_SERVICES "\"ldap:/// ldaps:/// ldapi:///\"" /etc/default/slapd 
 
 	replaceValues>$TMP $CONFD/tls_config.ldif LDAP_DOMAIN "ldap.$LDAP_DOMAIN"
 
@@ -66,7 +65,7 @@ sed -i "s/\(\$servers->setValue('login','bind_pass','\)\(.*\)\(');\)$/\1$(escape
 sed -i "s/\(\$servers->setValue('server','tls',\)\(.*\)\();\)$/\1true\3/g" /etc/phpldapadmin/config.php
 }
 
-if [ ! -e /usr/share/openldap/docker_configured ]; then
+if ([ !  "$(ls -A /etc/ldap/slapd.d)" ] || [ ! "$(ls -A /var/lib/ldap)" ]); then
 	status "configuring slapd for first run"
 
 	cat <<EOF | debconf-set-selections
@@ -78,8 +77,8 @@ slapd slapd/dump_database_destdir string /var/backups/slapd-VERSION
 slapd slapd/domain string ${LDAP_DOMAIN}
 slapd shared/organization string ${LDAP_ORGANISATION}
 slapd slapd/backend string HDB
-slapd slapd/purge_database boolean true
-slapd slapd/move_old_database boolean true
+slapd slapd/purge_database boolean false
+slapd slapd/move_old_database boolean false
 slapd slapd/allow_ldap_v2 boolean false
 slapd slapd/no_configuration boolean false
 slapd slapd/dump_database select when needed
@@ -91,18 +90,21 @@ EOF
 
 	changeAccess
 	configSSL
-	configPHPLDAPAdmin
 	configMail
 	configMemberof
 	configBase
 
-	touch /usr/share/openldap/docker_configured
+	pkill slapd
 else
 	status "found already-configured slapd"
+	
+	configPHPLDAPAdmin
+	setValue SLAPD_LDAPS yes /etc/default/slapd
+	setValue SLAPD_SERVICES "\"ldap:/// ldaps:/// ldapi:///\"" /etc/default/slapd 
+
 fi
 
 status "starting slapd"
 
-pkill slapd
 /etc/init.d/slapd start
 

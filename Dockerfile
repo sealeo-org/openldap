@@ -23,7 +23,7 @@ EXPOSE 80
 EXPOSE 389
 EXPOSE 636
 
-VOLUME ["/var/lib/ldap","/ssl"]
+VOLUME ["/etc/ldap/slapd.d","/var/lib/ldap","/ssl"]
 
 COPY ./files /
 

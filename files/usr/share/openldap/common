@@ -28,6 +28,12 @@ genPwd() {
   date +%s | sha256sum | base64 | head -c 32 ; echo 
 }
 
+askValue() {
+        read -p "$1? " value
+        [ -z "$value" ] && exit 0
+        echo $value
+}
+
 replaceValues() { 
 	delim=$'\001'
   filename=$1

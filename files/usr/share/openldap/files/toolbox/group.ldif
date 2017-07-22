@@ -1,0 +1,6 @@
+dn: cn=%UID,ou=groups,%DC
+cn: %UID
+member: cn=admin,%DC
+objectclass: groupOfNames
+objectclass: top
+owner: cn=admin,%DC

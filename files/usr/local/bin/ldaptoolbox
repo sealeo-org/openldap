@@ -1,51 +1,27 @@
 #!/bin/bash
 
-DC='dc='$(echo ${LDAP_DOMAIN} | cut -d "." -f 1)',dc='$(echo ${LDAP_DOMAIN} | cut -d "." -f 2)
+source /usr/share/openldap/common
+
+TOOLBOXD=$BASE_CONFD/toolbox
 
 if [ $(basename $0) == 'adduser' ]; then
-echo -n 'Login ?'
-read login
-echo -n 'Firstname ?'
-read firstname
-echo -n 'Lastname ?'
-read lastname
-echo -n 'Email ?'
-read email
-OLDMODES=$(stty -g)
-stty -echo
-echo -n 'Password ?'
-read password
-stty $OLDMODES
+	LOGIN=$(askValue Login)
+	FIRSTNAME=$(askValue Firstname)
+	LASTNAME=$(askValue Lastname)
+	EMAIL=$(askValue Email)
+	PASSWORD=$(askValue Password)
 
-cat > /tmp/user.ldif <<EOF
-dn: cn=$login,ou=people,$DC
-cn: $login
-displayname: $firstname $lastname
-givenname: $firstname
-mail: $email
-objectclass: top
-objectclass: inetOrgPerson
-sn: $lastname
-uid: $login
-userpassword: $(slappasswd -s $password -h {SSHA})
-EOF
+	TMP=$(mktemp)
+	replaceValues>$TMP $TOOLBOXD/user.ldif DC "$DC" LOGIN "$LOGIN" FIRSTNAME "$FIRSTNAME" LASTNAME "$LASTNAME" EMAIL "$EMAIL" PASSWORD "$( escape $(slappasswd -s $PASSWORD -h {SSHA}) )"
 
-ldapadd -D "cn=admin,$DC" -w $LDAP_PASSWORD -h localhost -f /tmp/user.ldif
+	ldapadd $LDAP_OPTS_ADMIN_SSL -f $TMP
 fi
 
 if [ $(basename $0) == 'addgroup' ]; then
+	LOGIN=$(askValue UID) 
 
-echo -n 'UID ?'
-read uid
+        TMP=$(mktemp)
+        replaceValues>$TMP $TOOLBOXD/group.ldif DC "$DC" LOGIN "$LOGIN"
 
-cat > /tmp/group.ldif <<EOF
-dn: cn=$uid,ou=groups,$DC
-cn: $uid
-member: cn=admin,$DC
-objectclass: groupOfNames
-objectclass: top
-owner: cn=admin,$DC
-EOF
-
-ldapadd -D "cn=admin,$DC" -w $LDAP_PASSWORD -h localhost -f /tmp/group.ldif
+	ldapadd $LDAP_OPTS_ADMIN_SSL -f $TMP
 fi
