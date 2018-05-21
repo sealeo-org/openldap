@@ -6,45 +6,54 @@ status() {
 
 BASE_CONFD=/usr/share/openldap/files
 
-DC="dc=$(echo $LDAP_DOMAIN|cut -d'.' -f1),dc=$(echo $LDAP_DOMAIN|cut -d'.' -f2)"
+DC="dc=$(echo "${LDAP_DOMAIN}"|cut -d'.' -f1),dc=$(echo "${LDAP_DOMAIN}"|cut -d'.' -f2)"
 CN_ADMIN="cn=admin,$DC"
+
 LDAP_OPTS="-c -Y EXTERNAL -H ldapi:///"
 LDAP_OPTS_ADMIN="-x -h localhost -D $CN_ADMIN -w $LDAP_PASSWORD"
-LDAP_OPTS_ADMIN_SSL="-h ldap.$LDAP_DOMAIN -p 389 -ZZZ -D $CN_ADMIN -w $LDAP_PASSWORD"
+
+[ "$LDAP_SSL" = "1" ] && LDAP_OPTS_ADMIN="-h ldap.$LDAP_DOMAIN -p 389 -ZZZ -D $CN_ADMIN -w $LDAP_PASSWORD"
 
 escape() {
-  echo $1 | sed 's#\([]\#\%\@\*\$\/&[]\)#\\\1#g'
+	echo "$1"|sed 's#\([]\#\%\@\*\$\/&[]\)#\\\1#g'
 }
 
 setValue() {
-  VAR=$( escape "$2" )
-  sed -i "s/^#\?\($1[[:space:]]*=\).*$/\1$VAR/" $3
+	VAR=$(escape "$2")
+	sed -i "s/^#\?\($1[[:space:]]*=\).*$/\1$VAR/" $3
 }
 
 uncomment() { sed -i "$1"' s/^ *#//' "$2"; }
 comment()   { sed -i "$1"' s/^/#/' "$2"; }
 
 genPwd() {
-  date +%s | sha256sum | base64 | head -c 32 ; echo 
+	date +%s | sha256sum | base64 | head -c 32 ; echo
 }
 
 askValue() {
-        read -p "$1? " value
-        [ -z "$value" ] && exit 0
-        echo $value
+	read -p "$1? " value
+	[ -z "$value" ] && exit 0
+	echo $value
 }
 
-replaceValues() { 
+askSecret() {
+	old=$(stty -g)
+	stty -echo
+	askValue $*
+	stty "${old}"
+}
+
+replaceValues() {
 	delim=$'\001'
-  filename=$1
-  shift
-  ans=$(cat $filename) 
- 
-  while [ $# -gt 1 ]; do
+	filename=$1
+	shift
+	ans=$(cat $filename)
+
+	while [ $# -gt 1 ]; do
 		from="%$1"
 		to=$(echo $2|sed 's/&/\\\&/g')
-    shift 2
-    ans=$(echo "$ans"|sed "s${delim}$from${delim}$to${delim}g")
-  done                                                                                                    
-  echo "$ans"
-} 
+		shift 2
+		ans=$(echo "$ans"|sed "s${delim}$from${delim}$to${delim}g")
+	done
+	echo "$ans"
+}

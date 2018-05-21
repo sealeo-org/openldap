@@ -3,69 +3,73 @@
 source /usr/share/openldap/common
 
 set -eux
-CONFD=$BASE_CONFD/init
+CONFD="${BASE_CONFD}/init"
 
 # Forbid anonymous access and update ACL for docker "mail"
 changeAccess () {
-	TMP=$(mktemp)
-	replaceValues>$TMP $CONFD/change_access.ldif DC "$DC"
+	tmp=$(mktemp)
+	replaceValues>"${tmp}" "${CONFD}/change_access.ldif" DC "${DC}"
 
 	setValue SLAPD_LDAPS yes /etc/default/slapd
-	setValue SLAPD_SERVICES "\"ldap:/// ldaps:/// ldapi:///\"" /etc/default/slapd 
+	setValue SLAPD_SERVICES "\"ldap:/// ldaps:/// ldapi:///\"" /etc/default/slapd
 
-	ldapmodify $LDAP_OPTS -f $TMP
+	ldapmodify ${LDAP_OPTS} -f "${tmp}"
 }
 
 configSSL() {
-	TMP=$(mktemp)
-	chown -R openldap /ssl/*
-	chmod -R 700 /ssl/*
+	tmp=$(mktemp)
+	mkdir -p /ssl
+	chown -R openldap /ssl/*  ||:
+	chmod -R 700 /ssl/*       ||:
 
-	replaceValues>$TMP $CONFD/tls_config.ldif LDAP_DOMAIN "ldap.$LDAP_DOMAIN"
+	replaceValues>"${tmp}" "${CONFD}/tls_config.ldif" LDAP_DOMAIN "ldap.${LDAP_DOMAIN}"
 
-	ldapmodify -QY EXTERNAL -H ldapi:/// -f $TMP
+	ldapmodify -QY EXTERNAL -H ldapi:/// -f "${tmp}"
 }
 
 configMail () {
-	mkdir /tmp/ldapConfig
+	tmpdir=$(mktemp -d)
 
-	TMP=$(mktemp)
-	slaptest -f $CONFD/schemaInclude.conf -F /tmp/ldapConfig
+	slaptest -f "${CONFD}/schemaInclude.conf" -F "${tmpdir}"
 
-	SCHEMAS=/tmp/ldapConfig/cn=config/cn=schema
-	cd $SCHEMAS
+	schemas="${tmpdir}/cn=config/cn=schema"
+	cd "${schemas}"
 
-	AUTHLDAP=$(ls | grep authldap)
+	authldap=$(ls | grep authldap)
 
-	cat $SCHEMAS/$AUTHLDAP | sed -re 's/(cn.+)\{[0-9]\}(.*)$/\1\2/g' | sed -re "s/cn=authldap/cn=authldap,cn=schema,cn=config/g" > $TMP
+	tmp=$(mktemp)
+	cat "${schemas}/${authldap}" | sed -re 's/(cn.+)\{[0-9]\}(.*)$/\1\2/g' | sed -re "s/cn=authldap/cn=authldap,cn=schema,cn=config/g" > "${tmp}"
 
-	head -n $(($(cat $SCHEMAS/$AUTHLDAP |wc -l)-7)) $TMP > $AUTHLDAP
+	head -n $(($(cat "${schemas}/${authldap}"|wc -l)-7)) "${tmp}" > "$authldap"
 
-	ldapadd $LDAP_OPTS -f $SCHEMAS/$AUTHLDAP
+	ldapadd ${LDAP_OPTS} -f "$schemas/$authldap"
 }
 
 configMemberof () {
-	ldapadd $LDAP_OPTS -f $CONFD/memberof_config.ldif
-	ldapmodify $LDAP_OPTS -f $CONFD/refint1.ldif
-	ldapadd $LDAP_OPTS -f $CONFD/refint2.ldif
+	ldapadd ${LDAP_OPTS} -f "${CONFD}/memberof_config.ldif"
+	ldapmodify ${LDAP_OPTS} -f "${CONFD}/refint1.ldif"
+	ldapadd ${LDAP_OPTS} -f "${CONFD}/refint2.ldif"
 }
 
 configBase () {
-	TMP=$(mktemp)
-	replaceValues>$TMP $CONFD/basic.ldif DC "$DC"
-	ldapadd $LDAP_OPTS_ADMIN_SSL -f $TMP
+	tmp=$(mktemp)
+	replaceValues>"${tmp}" "${CONFD}/basic.ldif" DC "${DC}"
+	ldapadd ${LDAP_OPTS_ADMIN} -f "${tmp}"
 }
 
 configPHPLDAPAdmin() {
-# Configure phpldapadmin
-sed -i "s/\(\$servers->setValue('server','name','\)\(.*\)\(');\)$/\1${LDAP_SERVERNAME}\3/g" /etc/phpldapadmin/config.php
-sed -i "s/\(\$servers->setValue('server','base',array('\)\(.*\)\('));\)$/\1${DC}\3/g" /etc/phpldapadmin/config.php
-sed -i "s/\(\$servers->setValue('login','bind_id','\)\(.*\)\(');\)$/\1cn=admin,${DC}\3/g" /etc/phpldapadmin/config.php
-sed -i "s/\(\$servers->setValue('login','bind_pass','\)\(.*\)\(');\)$/\1$(escape ${LDAP_PASSWORD})\3/g" /etc/phpldapadmin/config.php
-sed -i "s/\(\$servers->setValue('server','tls',\)\(.*\)\();\)$/\1true\3/g" /etc/phpldapadmin/config.php
+	# Configure phpldapadmin
+	sed -i "s/\(\$servers->setValue('server','name','\)\(.*\)\(');\)$/\1${LDAP_SERVERNAME}\3/g" /etc/phpldapadmin/config.php
+	sed -i "s/\(\$servers->setValue('server','base',array('\)\(.*\)\('));\)$/\1${DC}\3/g" /etc/phpldapadmin/config.php
+	sed -i "s/\(\$servers->setValue('login','bind_id','\)\(.*\)\(');\)$/\1cn=admin,${DC}\3/g" /etc/phpldapadmin/config.php
+	sed -i "s/\(\$servers->setValue('login','bind_pass','\)\(.*\)\(');\)$/\1$(escape ${LDAP_PASSWORD})\3/g" /etc/phpldapadmin/config.php
+	sed -i "s/\(\$servers->setValue('server','tls',\)\(.*\)\();\)$/\1true\3/g" /etc/phpldapadmin/config.php
 }
 
-if ([ !  "$(ls -A /etc/ldap/slapd.d)" ] || [ ! "$(ls -A /var/lib/ldap)" ]); then
+# If slapd was already running by another mean than init.d
+pkill slapd ||:
+
+if ([ -z "$(ls -A /etc/ldap/slapd.d)" ] || [ -z "$(ls -A /var/lib/ldap)" ]); then
 	status "configuring slapd for first run"
 
 	cat <<EOF | debconf-set-selections
@@ -89,22 +93,19 @@ EOF
 	/etc/init.d/slapd start
 
 	changeAccess
-	configSSL
+	[ "${LDAP_SSL}" = "1" ] && configSSL
 	configMail
 	configMemberof
 	configBase
 
-	pkill slapd
+	/etc/init.d/slapd stop
 else
 	status "found already-configured slapd"
-	
+
 	configPHPLDAPAdmin
 	setValue SLAPD_LDAPS yes /etc/default/slapd
-	setValue SLAPD_SERVICES "\"ldap:/// ldaps:/// ldapi:///\"" /etc/default/slapd 
-
+	setValue SLAPD_SERVICES "\"ldap:/// ldaps:/// ldapi:///\"" /etc/default/slapd
 fi
 
 status "starting slapd"
-
 /etc/init.d/slapd start
-

@@ -20,45 +20,45 @@ Or if you use *docker-compose*
 ```yaml
 version: '3'
 services:
-  ldap:
-    image : sealeo/openldap
-    volumes:
-      - /path/ldap/data:/var/lib/ldap
-    ports:
-      - 389:389
-      - 80:80
-    environment:
-      - LDAP_PASSWORD=password
-      - LDAP_ORGANISATION="My LDAP Server"
-      - LDAP_DOMAIN=mydomain.com
-      - LDAP_SERVERNAME=MyLDAP
+	ldap:
+		image: sealeo/openldap
+		volumes:
+			- /path/ldap/data:/var/lib/ldap
+		ports:
+			- 389:389
+			- 80:80
+		environment:
+			- LDAP_PASSWORD=password
+			- LDAP_ORGANISATION="My LDAP Server"
+			- LDAP_DOMAIN=mydomain.com
+			- LDAP_SERVERNAME=MyLDAP
+			- LDAP_SSL=0
 ```
 
 # Usage
 
-To add user and group, 2 scripts are available and you can execute 
-with *docker exec* command
+To add user and group, 2 scripts are available and you can execute with *docker exec* command
 
 ## Add user
 
 ```bash
 docker exec -it ldap add_user
 
-Login ?joe
-Firstname ?Joe
-Lastname ?Smith
-Email ?joe@smith.com
-Password ?
+Login? joe
+Firstname? Joe
+Lastname? Smith
+Email? joe@smith.com
+Password?
 
 adding new entry "cn=joe,ou=people,dc=mydomain,dc=com"
 ```
 
-## Add user
+## Add group
 
 ```bash
 docker exec -it ldap add_group
 
-UID ?members
+UID? members
 
 adding new entry "cn=members,ou=groups,dc=mydomain,dc=com"
 ```
@@ -67,7 +67,7 @@ adding new entry "cn=members,ou=groups,dc=mydomain,dc=com"
 
 On the port 80, you can access to PHPLDAPadmin to administrate your LDAP.
 
-Your credentials : 
+Your credentials:
 ```yaml
 Login DN: cn=admin,dc=mydomain,dc=com
 

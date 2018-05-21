@@ -2,26 +2,29 @@
 
 source /usr/share/openldap/common
 
-TOOLBOXD=$BASE_CONFD/toolbox
+TOOLBOXD="${BASE_CONFD}/toolbox"
 
-if [ $(basename $0) == 'adduser' ]; then
-	LOGIN=$(askValue Login)
-	FIRSTNAME=$(askValue Firstname)
-	LASTNAME=$(askValue Lastname)
-	EMAIL=$(askValue Email)
-	PASSWORD=$(askValue Password)
+tool=$(basename "$0")
 
-	TMP=$(mktemp)
-	replaceValues>$TMP $TOOLBOXD/user.ldif DC "$DC" LOGIN "$LOGIN" FIRSTNAME "$FIRSTNAME" LASTNAME "$LASTNAME" EMAIL "$EMAIL" PASSWORD "$( escape $(slappasswd -s $PASSWORD -h {SSHA}) )"
+if [ "${tool}" = 'adduser' ]; then
+	login=$(askValue Login)
+	firstname=$(askValue Firstname)
+	lastname=$(askValue Lastname)
+	email=$(askValue Email)
+	password=$(askSecret Password)
+	echo
 
-	ldapadd $LDAP_OPTS_ADMIN_SSL -f $TMP
+	tmp=$(mktemp)
+	replaceValues>"${tmp}" "${TOOLBOXD}/user.ldif" DC "${DC}" LOGIN "${login}" FIRSTNAME "${firstname}" LASTNAME "${lastname}" EMAIL "${email}" PASSWORD "$(escape $(slappasswd -s "${password}" -h '{SSHA}') )"
+
+	ldapadd ${LDAP_OPTS_ADMIN} -f "${tmp}"
 fi
 
-if [ $(basename $0) == 'addgroup' ]; then
-	LOGIN=$(askValue UID) 
+if [ "${tool}" = 'addgroup' ]; then
+	login=$(askValue UID)
 
-        TMP=$(mktemp)
-        replaceValues>$TMP $TOOLBOXD/group.ldif DC "$DC" LOGIN "$LOGIN"
+	tmp=$(mktemp)
+	replaceValues>"${tmp}" "${TOOLBOXD}/group.ldif" DC "${DC}" LOGIN "${login}"
 
-	ldapadd $LDAP_OPTS_ADMIN_SSL -f $TMP
+	ldapadd ${LDAP_OPTS_ADMIN} -f "${TMP}"
 fi
