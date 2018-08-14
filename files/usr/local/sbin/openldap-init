@@ -29,6 +29,16 @@ configSSL() {
 
 configMail () {
 	tmpdir=$(mktemp -d)
+	tmp=$(mktemp)
+
+	cp /usr/share/doc/courier-authlib-ldap/authldap.schema /etc/ldap/schema
+		
+	FIRSTLINE=$(grep -n "^#.*mailhost" /etc/ldap/schema/authldap.schema  | cut -d ":" -f 1)
+	NBLINES=$(cat /etc/ldap/schema/authldap.schema | wc -l)
+	head -n $(($FIRSTLINE-1)) /etc/ldap/schema/authldap.schema > "${tmp}"
+	cat /etc/ldap/schema/authldap.schema | head -n $(($FIRSTLINE+3)) | tail -n 4 | cut -d '#' -f 2 >> "${tmp}"
+	tail -n $(($NBLINES-$FIRSTLINE-3)) /etc/ldap/schema/authldap.schema >> "${tmp}"
+	cp "${tmp}" /etc/ldap/schema/authldap.schema
 
 	slaptest -f "${CONFD}/schemaInclude.conf" -F "${tmpdir}"
 
