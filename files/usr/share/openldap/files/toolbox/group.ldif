@@ -1,5 +1,5 @@
-dn: cn=%UID,ou=groups,%DC
-cn: %UID
+dn: cn=%GID,ou=groups,%DC
+cn: %GID
 member: cn=admin,%DC
 objectclass: groupOfNames
 objectclass: top

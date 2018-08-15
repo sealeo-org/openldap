@@ -21,10 +21,10 @@ if [ "${tool}" = 'adduser' ]; then
 fi
 
 if [ "${tool}" = 'addgroup' ]; then
-	login=$(askValue UID)
+	gid=$(askValue GID)
 
 	tmp=$(mktemp)
-	replaceValues>"${tmp}" "${TOOLBOXD}/group.ldif" DC "${DC}" LOGIN "${login}"
+	replaceValues>"${tmp}" "${TOOLBOXD}/group.ldif" DC "${DC}" GID "${gid}"
 
-	ldapadd ${LDAP_OPTS_ADMIN} -f "${TMP}"
+	ldapadd ${LDAP_OPTS_ADMIN} -f "${tmp}"
 fi
