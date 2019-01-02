@@ -1,4 +1,4 @@
-# sealeo/openldap
+# sealeo/openldap (Deprecated)
 
 [hub]: https://hub.docker.com/r/sealeo/openldap/
 
